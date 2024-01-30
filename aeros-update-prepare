@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Test if we are root and restart the script if we are not
+if [[ $EUID -ne 0 ]];
+then
+    exec sudo /bin/bash "$0" "$@"
+fi
+
+echo "aerOS Update Prepare Script"
+
+# Download necessary packages (wget, jq)
+echo "Downloading packages..."
+pacman -Sy --noconfirm wget jq
+
+# Download and apply required configurations and binaries
+echo "Downloading files..."
+wget https://raw.githubusercontent.com/hewol/aeros-update/master/etc/pacman-update.conf -O /etc/pacman-update.conf
+wget https://raw.githubusercontent.com/hewol/aeros-update/master/usr/bin/aeros-update -O /usr/bin/aeros-update
+chmod 755 /usr/bin/aeros-update
+
+echo "You can now upgrade your aerOS installation: run 'sudo aeros-update'"
