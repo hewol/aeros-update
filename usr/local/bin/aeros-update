@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Test if we are root and restart the script if we are not
+if [[ $EUID -ne 0 ]];
+then
+    exec sudo /bin/bash "$0" "$@"
+fi
+
+# Download update information
+wget https://raw.githubusercontent.com/hewol/aerOS/master/releases.json -O /tmp/releases.json 2>/dev/null
+
+# Get version information
+source /etc/os-release
+CURRENT_VERSION=$BUILD_ID
+LATEST_VERSION=$(jq -r .latest /tmp/releases.json)
+
+echo "aerOS Update Shell Script"
+echo
+
+# Check if updates are available
+if ! [ "$(printf '%s\n' "$CURRENT_VERSION" "$LATEST_VERSION" | sort -V | head -n1)" = "$LATEST_VERSION" ];
+then
+    echo "New update! $LATEST_VERSION"
+    echo
+    CHANGELOG=$(jq -r ".releases.$LATEST_VERSION.changelog.[]" /tmp/releases.json)
+    RELEASE_URL=$(jq -r ".releases.$LATEST_VERSION.url" /tmp/releases.json)
+    UPDATE_URL=$(jq -r ".releases.$LATEST_VERSION.package_url" /tmp/releases.json)
+
+    echo "Changelog:"
+    printf "%s" "$CHANGELOG"
+    echo
+    echo
+    echo "GitHub release: $RELEASE_URL"
+    echo "Update package URL: $UPDATE_URL"
+    echo
+    echo "Notes":
+    echo "Some settings and configurations might be restored back to their default state"
+    echo "Please don't turn off your computer while updating, otherwise you will encounter data loss"
+    echo "It is recommended to close all of your applications while updating"
+    echo
+    echo
+    read -p "Would you like to begin the update? [y/n] " -n 1 -r
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        # If any commands have failed, quit immediately (IF THIS HAPPENED TO YOU, IMMEDIATELY REINSTALL AS YOUR SYSTEM IS NOW UNSTABLE)
+        try() { "$@" || _() { printf "System update failed to install.\nPlease reinstall aerOS immediately as it may not work anymore!\n"; exit 1; }; _ 2>/dev/null; }
+        echo
+
+        # Get and apply update file (DO NOT MAKE THOSE WITH THE ISO, ALWAYS INSTALL FIRST)
+        try wget "$UPDATE_URL" -O ~/update.tar.gz
+        try pv ~/update.tar.gz | tar --xattrs --xattrs-include="*.*" --keep-directory-symlink --no-same-owner -C / -xpz
+
+        # Reset Pacman package manager
+        try rm -rf /etc/pacman.d/gnupg
+        try pacman-key --init
+        try pacman-key --populate
+        try pacman -Sy
+        try pacman -Scc --noconfirm
+
+        # Force update previously non-updated packages
+        try pacman --config=/etc/pacman-update.conf -Syu --overwrite="*" --noconfirm
+
+        # Clean-up after a finished update
+        try rm -rf ~/update.tar.gz
+
+        echo "System update has been installed, a reboot is required to apply it."
+        read -p "Would you like to reboot? [y/n] " -n 1 -r
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+            sync ; reboot -f
+        fi
+    fi
+else
+    echo "No updates found."
+    exit 0
+fi
