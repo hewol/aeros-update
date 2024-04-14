@@ -8,14 +8,14 @@ fi
 
 echo "aerOS Update Prepare Script"
 
-# Download necessary packages (wget, jq)
+# Download necessary packages (wget, jq, pv)
 echo "Downloading packages..."
-pacman -Sy --noconfirm wget jq
+pacman -Sy --noconfirm wget jq pv
 
 # Download and apply required configurations and binaries
 echo "Downloading files..."
 wget https://raw.githubusercontent.com/hewol/aeros-update/master/etc/pacman-update.conf -O /etc/pacman-update.conf
-wget https://raw.githubusercontent.com/hewol/aeros-update/master/usr/bin/aeros-update -O /usr/bin/aeros-update
-chmod 755 /usr/bin/aeros-update
+wget https://raw.githubusercontent.com/hewol/aeros-update/master/usr/local/bin/aeros-update -O /usr/local/bin/aeros-update
+chmod +x /usr/bin/aeros-update
 
 echo "You can now upgrade your aerOS installation: run 'sudo aeros-update'"
